@@ -22,6 +22,10 @@ const connectMongo = async () => {
 		});
 };
 
+app.get("/", (req, res) => {
+	res.send(`Todo backend server running on http://localhost:${config.port}!`);
+});
+
 app.listen(process.env.PORT || config.port, async () => {
 	console.log(
 		`Todo app listening on http://localhost:${config.port} ---------> ${config.port}`
