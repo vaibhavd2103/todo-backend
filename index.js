@@ -1,37 +1,59 @@
+require("dotenv").config();
+
 const express = require("express");
-const app = express();
-const config = require("./utils/config");
-const mongoose = require("mongoose");
 const cors = require("cors");
-const bodyParser = require("body-parser");
-const routes = require("./utils/routes");
+const connectDB = require("./src/config/database");
+const { startScheduler } = require("./src/services/scheduler.service");
 
+// Route imports
+const authRoutes = require("./src/routes/auth.routes");
+const boardRoutes = require("./src/routes/board.routes");
+const listRoutes = require("./src/routes/list.routes");
+const labelRoutes = require("./src/routes/label.routes");
+const workItemRoutes = require("./src/routes/workitem.routes");
+
+const app = express();
+
+// ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
-const connectMongo = async () => {
-	await mongoose
-		.connect(config.dbUrl)
-		.then(() => {
-			console.log("Connected to MongoDB successfully");
-		})
-		.catch((err) => {
-			console.log("error in connection to MongoDB", err);
-			process.exit(1);
-		});
+// ── Routes ────────────────────────────────────────────────────────────────────
+app.get("/", (req, res) => {
+  res.json({ success: true, message: "Todo Board API is running" });
+});
+
+app.use("/auth", authRoutes);
+app.use("/boards", boardRoutes);
+app.use("/boards/:boardId/lists", listRoutes);
+app.use("/boards/:boardId/labels", labelRoutes);
+app.use("/boards/:boardId/workitems", workItemRoutes);
+
+// ── Global Error Handler ──────────────────────────────────────────────────────
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  const statusCode = err.statusCode || 500;
+  const message = err.isOperational ? err.message : "Internal Server Error";
+
+  if (!err.isOperational) {
+    console.error("Unexpected error:", err);
+  }
+
+  res.status(statusCode).json({ success: false, message });
+});
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 5000;
+
+const start = async () => {
+  await connectDB();
+  startScheduler();
+  app.listen(PORT, () => {
+    console.log(`Todo Board API running on http://localhost:${PORT}`);
+  });
 };
 
-app.get("/", (req, res) => {
-	res.send(`Todo backend server running on http://localhost:${config.port}!`);
-});
-
-app.listen(process.env.PORT || config.port, async () => {
-	console.log(
-		`Todo app listening on http://localhost:${config.port} ---------> ${config.port}`
-	);
-	await connectMongo();
-	await routes(app);
-});
+start();
 
 module.exports = app;
